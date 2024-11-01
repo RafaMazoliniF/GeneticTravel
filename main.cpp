@@ -5,8 +5,9 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
-#include <cstdlib> // Para system()
-#include <sstream> // Para ostringstream
+#include <cstdlib> 
+#include <sstream> 
+#include <fstream>
 
 using namespace std;
 
@@ -64,6 +65,12 @@ class Individual {
             setTotalCost(model.getCities());
         }
 
+        Individual(const Individual& other) {
+            this->gene = other.gene;
+            this->cost = other.cost; 
+        }
+
+
         vector<int> getGene() {
             return this->gene;
         } 
@@ -101,6 +108,7 @@ class Individual {
 class God {
     //This class is the ambient that selects and creates individuals. 
     private:
+        vector<vector<Individual>> all_generations;
         vector<Individual> generation;
         Model * model;
 
@@ -119,12 +127,13 @@ class God {
             return Individual(numbers, model);
         }
 
-        void SortGeneration() {
+        void SortGeneration(vector<Individual>& generation) {
             // Sort individuals based on their cost (ascending)
             sort(generation.begin(), generation.end(), [](Individual& a, Individual& b) {
                 return a.getCost() < b.getCost();
             });
         }
+
 
     public:
         God(int n_individuals, Model& model) {
@@ -133,7 +142,7 @@ class God {
                 this->generation.push_back(CreateRandomIndividual(model));
             }
 
-            SortGeneration();
+            SortGeneration(this->generation);
         }
 
         void PrintGeneration() {
@@ -145,14 +154,18 @@ class God {
             }
         }
 
-        void CreateNewGeneration() {
-            for (int i = 1; i < (int) this->generation.size(); i++) {
-                for (int j = 0; j < i; j++) {
-                    this->generation[i].Mutate(*model);
+        vector<Individual> CreateNewGeneration() {
+            vector<Individual> new_generation(generation);
+
+            for (int i = 1; i < (int) new_generation.size(); i++) {
+                for (int j = 0; j < i*2; j++) {
+                    new_generation[i].Mutate(*model);
                 }
             }
 
-            SortGeneration();
+            SortGeneration(new_generation);
+
+            return new_generation;
         }
 
         Individual getBestIndividual() {
@@ -165,48 +178,34 @@ class God {
         }
 
         void Run4nEpocs(int n) {
-            PrintGeneration();
-            cout << endl << endl;
+            ofstream outfile("../costs.csv");
+            outfile << "Generation,Cost\n";
 
             for (int i = 0; i < n; i++) {
-                CreateNewGeneration();
+                this->generation = CreateNewGeneration();
+                float best_cost = this->generation[0].getCost();
+
+                outfile << i << "," << best_cost << "\n";
             }
 
-            PrintGeneration();
+            outfile.close();
         }
 };
 
-void CallPythonPlot(Individual final_solution, Model& model) {
-    //Call a plot_points.py to plot a given final solution based on a given model.
 
-    vector<int> solution = final_solution.getGene();
-    string cost = to_string(final_solution.getCost());
-
-    stringstream ss;
-    for (int city : solution) {
-        array<int, 2> coords = model.GetCity(city);
-        ss << coords[0] << "," << coords[1] << " "; 
-    }
-
-    string points = ss.str();
-    points.pop_back(); 
-
-    string command = "python3 ../plot_points.py " + cost + " " + points;
-    system(command.c_str()); 
-}
 
 int main() {
-    // Defining the problem
-    // map<int, std::array<int, 2>> cities = {
-    //     {0, {30, 0}},
-    //     {1, {21, 21}},
-    //     {2, {0, 30}},
-    //     {3, {-21, 21}},
-    //     {4, {-30, 0}},
-    //     {5, {-21, -21}},
-    //     {6, {0, -30}},
-    //     {7, {21, -21}}
-    // };
+    //Defining the problem
+    map<int, std::array<int, 2>> cities = {
+        {0, {30, 0}},
+        {1, {21, 21}},
+        {2, {0, 30}},
+        {3, {-21, 21}},
+        {4, {-30, 0}},
+        {5, {-21, -21}},
+        {6, {0, -30}},
+        {7, {21, -21}}
+    };
 
     // map<int, array<int, 2>> cities = {
     //     {0, {19, 26}},
@@ -219,35 +218,33 @@ int main() {
     //     {7, {3, 5}}
     // };
 
-    map<int, array<int, 2>> cities = {
-        {0, {42, 65}},
-        {1, {78, 91}},
-        {2, {65, 23}},
-        {3, {12, 58}},
-        {4, {95, 84}},
-        {5, {33, 47}},
-        {6, {81, 19}},
-        {7, {55, 72}},
-        {8, {90, 10}},
-        {9, {48, 99}},
-        {10, {77, 45}},
-        {11, {18, 29}},
-        {12, {29, 80}},
-        {13, {63, 54}},
-        {14, {25, 37}},
-        {15, {91, 68}},
-        {16, {36, 15}},
-        {17, {58, 91}},
-        {18, {84, 12}},
-        {19, {10, 62}}
-    };
+    // map<int, array<int, 2>> cities = {
+    //     {0, {42, 65}},
+    //     {1, {78, 91}},
+    //     {2, {65, 23}},
+    //     {3, {12, 58}},
+    //     {4, {95, 84}},
+    //     {5, {33, 47}},
+    //     {6, {81, 19}},
+    //     {7, {55, 72}},
+    //     {8, {90, 10}},
+    //     {9, {48, 99}},
+    //     {10, {77, 45}},
+    //     {11, {18, 29}},
+    //     {12, {29, 80}},
+    //     {13, {63, 54}},
+    //     {14, {25, 37}},
+    //     {15, {91, 68}},
+    //     {16, {36, 15}},
+    //     {17, {58, 91}},
+    //     {18, {84, 12}},
+    //     {19, {10, 62}}
+    // };
 
     Model model(cities);
     God god(10, model);
 
     god.Run4nEpocs(10000);
-
-    CallPythonPlot(god.getBestIndividual(), model);
 
     cout << endl;
     return 0;
